@@ -1,4 +1,4 @@
-# Flask Auth0 Integration
+# Azure Function: Storage Queue & SQL Output Binding (Python)
 
 **Name:** Mohit Singh Panwar  
 **Student ID:** 041167761  
@@ -6,8 +6,6 @@
 **Video DEMO Part1:** https://youtu.be/woDNxiDn04A
 **Video DEMO Part2:** https://youtu.be/WM0uYmA7LYY
 
-
-# Azure Function: Storage Queue & SQL Output Binding (Python)
 
 This project demonstrates how to create and deploy Azure Functions in Python that:
 
