@@ -58,51 +58,169 @@ Both functions are developed using **Visual Studio Code** and tested locally bef
 
 ---
 
-## ▶️ Run & Test Locally
+### 1. Create or Open Azure Function Project
+- Use VS Code to either create a new Azure Function project or open an existing one.
 
-### 1. Queue Function
+### 2. Download Remote App Settings
+To sync Azure Storage locally:
+- F1 → `Azure Functions: Download Remote Settings...`
+- Select Function App
+- Overwrite `local.settings.json`
+- Copy `AzureWebJobsStorage` value
 
-**Run:**
+### 3. Register Binding Extensions
+Ensure `host.json` includes:
 
-```bash
-func start
+#### For Queue Binding:
+```json
+{
+  "version": "2.0",
+  "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[3.*, 4.0.0)"
+  }
+}
 ```
 
-**Test:**
-
-```bash
-curl -X POST http://localhost:7071/api/HttpExample -H "Content-Type: application/json" -d '{"name": "Azure"}'
+#### For SQL Binding:
+```json
+{
+  "version": "2.0",
+  "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[4.*, 5.0.0)"
+  }
+}
 ```
-
-**Check:**
-
-- Open Azure Storage Explorer
-- Navigate to Queue: `outqueue`
-- Confirm the message is present
 
 ---
 
-### 2. SQL Function
+## 📦 Queue Output Binding
 
-**Run:**
+### Function Code (function_app.py)
 
-```bash
-func start
+```python
+import azure.functions as func
+import logging
+
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+
+@app.route(route="HttpExample")
+@app.queue_output(arg_name="msg", queue_name="outqueue", connection="AzureWebJobsStorage")
+def HttpExample(req: func.HttpRequest, msg: func.Out[func.QueueMessage]) -> func.HttpResponse:
+    logging.info('Processing HTTP request.')
+
+    name = req.params.get('name')
+    if not name:
+        try:
+            req_body = req.get_json()
+            name = req_body.get('name')
+        except ValueError:
+            pass
+
+    if name:
+        msg.set(name)
+        return func.HttpResponse(f"Hello, {name}. This HTTP triggered function executed successfully.")
+    else:
+        return func.HttpResponse(
+            "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body.",
+            status_code=200
+        )
 ```
 
-**Test:**
+### Run & Test
+- Press **F5** to run locally
+- Right-click `HttpExample` → Execute
+- Test input: `{ "name": "Azure" }`
 
-```bash
-curl -X POST http://localhost:7071/api/hello -H "Content-Type: application/json" -d '{"name": "SQL Test"}'
-```
+### Check Queue
+- Open Azure Storage Explorer → Queues → `outqueue`
+- Confirm message is present
 
-**Check:**
+### Deploy
+- F1 → `Azure Functions: Deploy to Function App`
 
-- Azure Portal → SQL Database → Query Editor
+---
+
+## 🗃️ SQL Output Binding
+
+### Azure SQL Setup
+
+#### 1. Create SQL Database
+- Name: `mySampleDatabase`
+- Server: globally unique
+- Auth: SQL Server Authentication
+- Allow Azure services access ✅
+
+#### 2. Create Table
+Query Editor → Run:
 
 ```sql
-SELECT * FROM dbo.ToDo WHERE title = 'SQL Test';
+CREATE TABLE dbo.ToDo (
+    [Id] UNIQUEIDENTIFIER PRIMARY KEY,
+    [order] INT NULL,
+    [title] NVARCHAR(200) NOT NULL,
+    [url] NVARCHAR(200) NOT NULL,
+    [completed] BIT NOT NULL
+);
 ```
+
+#### 3. Add App Setting
+F1 → `Azure Functions: Add New Setting...`  
+Name: `SqlConnectionString`  
+Value: Your edited ADO.NET connection string
+
+### Function Code (function_app.py)
+
+```python
+import azure.functions as func
+import logging
+from azure.functions.decorators.core import DataType
+import uuid
+
+app = func.FunctionApp()
+
+@app.function_name(name="HttpTrigger1")
+@app.route(route="hello", auth_level=func.AuthLevel.ANONYMOUS)
+@app.generic_output_binding(
+    arg_name="toDoItems",
+    type="sql",
+    CommandText="dbo.ToDo",
+    ConnectionStringSetting="SqlConnectionString",
+    data_type=DataType.STRING
+)
+def test_function(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func.HttpResponse:
+    logging.info('Processing HTTP request.')
+
+    name = req.get_json().get('name')
+    if name:
+        toDoItems.set(func.SqlRow({
+            "Id": str(uuid.uuid4()),
+            "title": name,
+            "completed": False,
+            "url": ""
+        }))
+        return func.HttpResponse(f"Hello {name}!")
+    else:
+        return func.HttpResponse(
+            "Please pass a name in the request body",
+            status_code=400
+        )
+```
+
+### Run & Test
+- F5 → Run locally
+- Right-click `HttpTrigger1` → Execute Function
+- Test input: `{ "name": "Azure" }`
+
+### Check SQL Output
+Query:
+```sql
+SELECT TOP 1000 * FROM dbo.ToDo;
+```
+
+### Deploy
+- F1 → `Azure Functions: Deploy to Function App`
 
 ---
 
