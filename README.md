@@ -129,7 +129,7 @@ SELECT * FROM dbo.ToDo WHERE title = 'SQL Test';
 
 ## 🔗 GitHub Repository
 
-**Public Repo:** [https://github.com/your-username/azure-func-queue-sql](https://github.com/your-username/azure-func-queue-sql)
+**Public Repo:** https://github.com/mspanwar21/Azure-Function-App
 
 
 
